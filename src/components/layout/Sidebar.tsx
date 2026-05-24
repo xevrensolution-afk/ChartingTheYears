@@ -14,6 +14,7 @@ const overview: Item[] = [
 const content: Item[] = [
   { label: 'Books', href: '/admin/books', icon: '/icon-svgs/books.svg' },
   { label: 'Add Book', href: '/admin/books/add', icon: '/icon-svgs/add-book.svg' },
+  { label: 'Import Books', href: '/admin/books/import', icon: '/icon-svgs/import.svg' },
   { label: 'Categories', href: '/admin/categories', icon: '/icon-svgs/categories.svg' },
   { label: 'Tags', href: '/admin/tags', icon: '/icon-svgs/tags.svg' },
 ];

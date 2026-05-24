@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/apiClient';
 import { getApiErrorMessage, showApiToast } from '@/components/ui/kit/Toast';
+import { RichTextEditor } from '@/components/features/RichTextEditor';
 
 interface BookFormProps {
   initialData?: Book;
@@ -82,10 +83,14 @@ export function BookForm({ initialData }: BookFormProps) {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
+    watch,
   } = useForm<Book>({
     resolver: zodResolver(BookSchema),
     defaultValues: getDefaultFormValues(initialData),
   });
+
+  const reviewTextValue = watch('reviewText') || '';
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -317,9 +322,10 @@ export function BookForm({ initialData }: BookFormProps) {
           {/* Review Text */}
           <div>
             <KitLabel>Review Text</KitLabel>
-            <KitTextarea
+            <RichTextEditor
+              value={reviewTextValue}
+              onChange={(val) => setValue('reviewText', val)}
               placeholder="Write your review here..."
-              {...register('reviewText')}
             />
             {errors.reviewText && <p className="mt-1 text-xs text-danger">{errors.reviewText.message}</p>}
           </div>

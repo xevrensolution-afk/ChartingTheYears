@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useReadingList } from '@/hooks/useReadingList';
 import apiClient from '@/lib/apiClient';
+import { useAuth } from '@/contexts/AuthContext';
 import './book-detail.css';
 
 interface Book {
@@ -75,6 +76,9 @@ export default function BookDetailPage() {
   // Unified reading list — guest localStorage or authenticated DB
   const { isInList, toggleBook } = useReadingList();
 
+  // Auth context
+  const { user, isAuthenticated } = useAuth();
+
   // Review form state
   const [reviewAuthor, setReviewAuthor] = useState('');
   const [reviewRating, setReviewRating] = useState(0);
@@ -82,6 +86,13 @@ export default function BookDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // Prefill reviewAuthor with user's name if logged in
+  useEffect(() => {
+    if (isAuthenticated && user?.name) {
+      setReviewAuthor(user.name);
+    }
+  }, [user, isAuthenticated]);
 
   // Fetch book
   useEffect(() => {
@@ -128,7 +139,8 @@ export default function BookDetailPage() {
     e.preventDefault();
     setSubmitError(null);
 
-    if (!reviewAuthor.trim()) return setSubmitError('Please enter your name.');
+    const authorName = isAuthenticated ? (user?.name || '') : reviewAuthor.trim();
+    if (!authorName) return setSubmitError('Please enter your name.');
     if (reviewRating === 0) return setSubmitError('Please select a star rating.');
     if (!reviewText.trim() || reviewText.trim().length < 10) return setSubmitError('Review must be at least 10 characters.');
 
@@ -136,12 +148,14 @@ export default function BookDetailPage() {
     try {
       const res = await apiClient.post<{ data: Review }>('/api/reviews', {
         bookId: id,
-        author: reviewAuthor.trim(),
+        author: authorName,
         rating: reviewRating,
         text: reviewText.trim(),
       });
       setReviews((prev) => [res.data.data, ...prev]);
-      setReviewAuthor('');
+      if (!isAuthenticated) {
+        setReviewAuthor('');
+      }
       setReviewRating(0);
       setReviewText('');
       setSubmitSuccess(true);
@@ -235,7 +249,10 @@ export default function BookDetailPage() {
 
       {/* Description */}
       {book.reviewText && (
-        <p className="bd-description">{book.reviewText}</p>
+        <div 
+          className="bd-description prose prose-sm max-w-none text-ink-soft leading-relaxed" 
+          dangerouslySetInnerHTML={{ __html: book.reviewText }}
+        />
       )}
 
       {/* Reading list button */}
@@ -284,54 +301,63 @@ export default function BookDetailPage() {
         <h2 className="bd-reviews-title">Comments & Feedback</h2>
 
         {/* Submit form */}
-        <form onSubmit={handleReviewSubmit} className="bd-review-form" noValidate>
-          <h3 className="bd-review-form-heading">Leave Feedback</h3>
+        {isAuthenticated ? (
+          <form onSubmit={handleReviewSubmit} className="bd-review-form" noValidate>
+            <h3 className="bd-review-form-heading">Leave Feedback</h3>
 
-          <div className="bd-review-form-row">
+            <div className="bd-review-form-row">
+              <div className="bd-review-form-field">
+                <label className="bd-review-label" htmlFor="review-author">Your name</label>
+                <input
+                  id="review-author"
+                  type="text"
+                  className="bd-review-input"
+                  value={user?.name || ''}
+                  disabled={true}
+                />
+              </div>
+              <div className="bd-review-form-field">
+                <label className="bd-review-label">Your rating</label>
+                <StarPicker value={reviewRating} onChange={setReviewRating} />
+              </div>
+            </div>
+
             <div className="bd-review-form-field">
-              <label className="bd-review-label" htmlFor="review-author">Your name</label>
-              <input
-                id="review-author"
-                type="text"
-                className="bd-review-input"
-                placeholder="e.g. Jane Smith"
-                value={reviewAuthor}
-                onChange={(e) => setReviewAuthor(e.target.value)}
+              <label className="bd-review-label" htmlFor="review-text">Comment</label>
+              <textarea
+                id="review-text"
+                className="bd-review-textarea"
+                placeholder="Share your thoughts about this book..."
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
                 disabled={submitting}
-                maxLength={100}
+                rows={4}
+                maxLength={2000}
               />
             </div>
-            <div className="bd-review-form-field">
-              <label className="bd-review-label">Your rating</label>
-              <StarPicker value={reviewRating} onChange={setReviewRating} />
-            </div>
+
+            {submitError && (
+              <p className="bd-review-error" role="alert">{submitError}</p>
+            )}
+            {submitSuccess && (
+              <p className="bd-review-success" role="status">Feedback submitted! Thank you.</p>
+            )}
+
+            <button type="submit" className="bd-review-submit" disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit'}
+            </button>
+          </form>
+        ) : (
+          <div className="bd-review-login-prompt">
+            <p>
+              Please{' '}
+              <Link href="/auth/signin" className="bd-review-login-link">
+                Sign In
+              </Link>{' '}
+              to share comments and feedback about this book.
+            </p>
           </div>
-
-          <div className="bd-review-form-field">
-            <label className="bd-review-label" htmlFor="review-text">Comment</label>
-            <textarea
-              id="review-text"
-              className="bd-review-textarea"
-              placeholder="Share your thoughts about this book..."
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              disabled={submitting}
-              rows={4}
-              maxLength={2000}
-            />
-          </div>
-
-          {submitError && (
-            <p className="bd-review-error" role="alert">{submitError}</p>
-          )}
-          {submitSuccess && (
-            <p className="bd-review-success" role="status">Feedback submitted! Thank you.</p>
-          )}
-
-          <button type="submit" className="bd-review-submit" disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit'}
-          </button>
-        </form>
+        )}
 
         {/* Review list */}
         {reviewsLoading ? (

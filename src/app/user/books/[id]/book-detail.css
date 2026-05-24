@@ -591,3 +591,31 @@
 .bd-not-found-link:hover {
   text-decoration: underline;
 }
+
+/* ── Review Login Prompt ── */
+.bd-review-login-prompt {
+  padding: 32px 24px;
+  background-color: var(--surface-2);
+  border-radius: 16px;
+  border: 1.5px dashed var(--line);
+  text-align: center;
+  margin-top: 10px;
+}
+
+.bd-review-login-prompt p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.bd-review-login-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.bd-review-login-link:hover {
+  color: var(--coffee);
+}
