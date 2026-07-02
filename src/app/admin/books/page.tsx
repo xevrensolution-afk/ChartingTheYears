@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/kit/Card';
 import { KitButton } from '@/components/ui/kit/Button';
@@ -10,6 +10,7 @@ import { Icon } from '@/components/ui/kit/Icon';
 import { Modal } from '@/components/ui/kit/Modal';
 import apiClient from '@/lib/apiClient';
 import { getApiErrorMessage, showApiToast } from '@/components/ui/kit/Toast';
+import { BookReviewsSection } from '@/components/features/BookReviewsSection';
 
 interface Book {
   _id: string;
@@ -37,6 +38,7 @@ export default function BooksPage() {
   const [total, setTotal] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null);
+  const [reviewBook, setReviewBook] = useState<Book | null>(null);
 
   // Debounce search query and reset page
   useEffect(() => {
@@ -176,6 +178,13 @@ export default function BooksPage() {
                       </KitButton>
                     </Link>
                     <KitButton
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setReviewBook(b)}
+                    >
+                      <Icon name="star" size={12} /> Reviews
+                    </KitButton>
+                    <KitButton
                       variant="danger"
                       size="sm"
                       onClick={() => setBookToDelete(b)}
@@ -287,6 +296,22 @@ export default function BooksPage() {
           </div>
         </div>
       )}
+
+      {/* Reviews modal */}
+      <Modal open={!!reviewBook} onClose={() => setReviewBook(null)} size="lg">
+        <div className="p-6 max-h-[80vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-ink">{reviewBook?.title}</h3>
+              <p className="text-sm text-ink-mute">{reviewBook?.author}</p>
+            </div>
+            <KitButton variant="outline" size="sm" onClick={() => setReviewBook(null)}>
+              <Icon name="plus" size={14} style={{ transform: 'rotate(45deg)' }} /> Close
+            </KitButton>
+          </div>
+          {reviewBook && <BookReviewsSection bookId={reviewBook._id} bare />}
+        </div>
+      </Modal>
 
       <Modal open={!!bookToDelete} onClose={() => setBookToDelete(null)} size="sm">
         <div className="p-8 text-center">
