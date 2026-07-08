@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     const skipCount = searchParams.get('skip_count') === '1';
 
     const [books, total, mapStats] = await Promise.all([
-      Book.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Book.find(filter).sort({ _id: -1 }).skip(skip).limit(limit).lean(),
       skipCount ? Promise.resolve(0) : Book.countDocuments(filter),
       skipMap
         ? Promise.resolve([])
