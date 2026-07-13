@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Icon } from '@/components/ui/kit/Icon';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAppSelector } from '@/store/hooks';
+import { selectDefaultLanguage } from '@/features/settings/selectors';
 import './LanguageSwitcher.css';
 
 const LANGUAGES = [
@@ -11,7 +12,7 @@ const LANGUAGES = [
 ];
 
 export function LanguageSwitcher() {
-  const { settings } = useSettings();
+  const defaultLanguage = useAppSelector(selectDefaultLanguage);
   const [active, setActive] = useState(LANGUAGES[0]);
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -19,10 +20,10 @@ export function LanguageSwitcher() {
   // Sync with defaultLanguage from admin settings
   useEffect(() => {
     const matched = LANGUAGES.find(
-      (l) => l.label.toLowerCase() === settings.defaultLanguage?.toLowerCase()
+      (l) => l.label.toLowerCase() === defaultLanguage?.toLowerCase()
     );
     if (matched) setActive(matched);
-  }, [settings.defaultLanguage]);
+  }, [defaultLanguage]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {

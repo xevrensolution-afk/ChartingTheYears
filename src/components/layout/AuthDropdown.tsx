@@ -2,14 +2,31 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { logout } from '@/features/auth/authSlice';
+import {
+  selectAuthIsLoading,
+  selectCurrentUser,
+  selectIsAuthenticated,
+} from '@/features/auth/selectors';
 import { Icon } from '@/components/ui/kit/Icon';
 import './AuthDropdown.css';
 
 export function AuthDropdown() {
-  const { user, logout, isAuthenticated, isLoading } = useAuth();
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const user = useAppSelector(selectCurrentUser);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const isLoading = useAppSelector(selectAuthIsLoading);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleLogout = () => {
+    setIsOpen(false);
+    dispatch(logout());
+    router.push('/user');
+  };
 
   // Close when clicking outside
   useEffect(() => {
@@ -77,7 +94,7 @@ export function AuthDropdown() {
 
             <button
               className="auth-menu-item auth-menu-item--danger"
-              onClick={() => { setIsOpen(false); logout(); }}
+              onClick={handleLogout}
               role="menuitem"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

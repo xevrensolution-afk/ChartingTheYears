@@ -5,7 +5,8 @@ import { Card } from '@/components/ui/kit/Card';
 import { KitButton } from '@/components/ui/kit/Button';
 import { KitInput, KitLabel, KitTextarea } from '@/components/ui/kit/Input';
 import { Icon } from '@/components/ui/kit/Icon';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAppSelector } from '@/store/hooks';
+import { selectCurrentUser } from '@/features/auth/selectors';
 import apiClient from '@/lib/apiClient';
 import { showApiToast, getApiErrorMessage } from '@/components/ui/kit/Toast';
 
@@ -45,7 +46,7 @@ interface BookReviewsSectionProps {
 }
 
 export function BookReviewsSection({ bookId, bare = false }: BookReviewsSectionProps) {
-  const { user } = useAuth();
+  const user = useAppSelector(selectCurrentUser);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);

@@ -1,19 +1,21 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/kit/Icon';
-import { useReadingList } from '@/hooks/useReadingList';
-import { useSettings } from '@/contexts/SettingsContext';
-import { useFilter } from '@/contexts/FilterContext';
-import apiClient from '@/lib/apiClient';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchReadingListBooks } from '@/features/readingList/readingListSlice';
+import {
+  selectReadingListCategoryCounts,
+  selectReadingListCount,
+  selectReadingListIds,
+  selectReadingListReady,
+} from '@/features/readingList/selectors';
+import { setMobileReadingListOpen } from '@/features/ui/uiSlice';
+import { selectMobileReadingListOpen } from '@/features/ui/selectors';
+import { selectSiteName } from '@/features/settings/selectors';
 import './ReadingListSidebar.css';
-
-interface Book {
-  _id: string;
-  category: string;
-}
 
 const HISTORY_CATEGORIES = [
   'Social History',
@@ -25,34 +27,24 @@ const HISTORY_CATEGORIES = [
 ];
 
 function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onClose?: () => void }) {
-  const [books, setBooks] = useState<Book[]>([]);
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const activeCategory = searchParams?.get('category') || 'All';
-  const { settings } = useSettings();
 
-  const { ids, isReady } = useReadingList();
+  const siteName = useAppSelector(selectSiteName);
+  const ids = useAppSelector(selectReadingListIds);
+  const isReady = useAppSelector(selectReadingListReady);
+  const totalCount = useAppSelector(selectReadingListCount);
+  // Derived in a memoized selector from the shared, normalized book cache —
+  // the reading-list page and this sidebar share one fetch.
+  const categoryCounts = useAppSelector(selectReadingListCategoryCounts);
 
   useEffect(() => {
     if (!isReady) return;
-
-    if (ids.length === 0) {
-      setBooks([]);
-      return;
-    }
-
-    let cancelled = false;
-    apiClient
-      .get<{ data: Book[] }>(`/api/books?ids=${ids.join(',')}`)
-      .then((r) => { if (!cancelled) setBooks(r.data.data); })
-      .catch(() => {});
-
-    return () => { cancelled = true; };
-  }, [ids, isReady]);
-
-  const categoryCounts = books.reduce((acc, book) => {
-    acc[book.category] = (acc[book.category] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+    // Thunk `condition` dedupes with the reading-list page and skips the
+    // request entirely when the cache already covers every id.
+    dispatch(fetchReadingListBooks());
+  }, [ids, isReady, dispatch]);
 
   return (
     <>
@@ -71,7 +63,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
             <span className="rl-sidebar-logo-icon">
               <Icon name="logo" size={26} />
             </span>
-            <span className="rl-sidebar-logo-name">{settings.siteName}</span>
+            <span className="rl-sidebar-logo-name">{siteName}</span>
           </Link>
 
           {/* Close button — mobile only */}
@@ -105,7 +97,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
             >
               <span className="rl-category-name">All Books</span>
               <div className="rl-category-line" />
-              <span className="rl-category-count">{ids.length}</span>
+              <span className="rl-category-count">{totalCount}</span>
             </Link>
 
             {HISTORY_CATEGORIES.map((cat) => {
@@ -135,13 +127,14 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
 }
 
 export function ReadingListSidebar() {
-  const { filters, setMobileRLOpen } = useFilter();
+  const dispatch = useAppDispatch();
+  const isMobileOpen = useAppSelector(selectMobileReadingListOpen);
 
   return (
     <Suspense fallback={<aside className="rl-sidebar" />}>
       <SidebarContent
-        isMobileOpen={filters.mobileRLOpen}
-        onClose={() => setMobileRLOpen(false)}
+        isMobileOpen={isMobileOpen}
+        onClose={() => dispatch(setMobileReadingListOpen(false))}
       />
     </Suspense>
   );

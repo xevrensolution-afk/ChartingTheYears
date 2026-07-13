@@ -1,74 +1,41 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useReadingList } from '@/hooks/useReadingList';
-import apiClient from '@/lib/apiClient';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchReadingListBooks, removeBook } from '@/features/readingList/readingListSlice';
+import {
+  selectReadingListBooks,
+  selectReadingListBooksLoading,
+  selectReadingListIds,
+  selectReadingListReady,
+} from '@/features/readingList/selectors';
 import './reading-list.css';
 
-interface Book {
-  _id: string;
-  title: string;
-  author: string;
-  category: string;
-  language: string;
-  rating: number;
-  imageUrl?: string;
-  publicationYear: number;
-  reviewText?: string;
-}
-
 function ReadingListContent() {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const activeCategory = searchParams?.get('category') || 'All';
 
-  // Unified reading list hook — handles guest vs. authenticated seamlessly
-  const { ids, removeBook, isReady } = useReadingList();
+  const ids = useAppSelector(selectReadingListIds);
+  const isReady = useAppSelector(selectReadingListReady);
+  // One batch request into the normalized cache, shared with the sidebar
+  // (replaces the old one-request-per-book fetch that only this page saw).
+  const books = useAppSelector(selectReadingListBooks);
+  const booksLoading = useAppSelector(selectReadingListBooksLoading);
 
-  // Fetch full book details whenever the IDs list changes
   useEffect(() => {
     if (!isReady) return;
+    dispatch(fetchReadingListBooks());
+  }, [ids, isReady, dispatch]);
 
-    if (ids.length === 0) {
-      setBooks([]);
-      setLoading(false);
-      return;
-    }
+  const loading = !isReady || (booksLoading && ids.length > 0);
 
-    let cancelled = false;
-    const fetchBooks = async () => {
-      setLoading(true);
-      try {
-        const results = await Promise.allSettled(
-          ids.map((id) =>
-            apiClient.get<{ data: Book }>(`/api/books/${id}`).then((r) => r.data.data)
-          )
-        );
-        if (!cancelled) {
-          const valid = results
-            .filter((r): r is PromiseFulfilledResult<Book> => r.status === 'fulfilled')
-            .map((r) => r.value);
-          setBooks(valid);
-        }
-      } catch {
-        // silent
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchBooks();
-    return () => { cancelled = true; };
-  }, [ids, isReady]);
-
+  // Removal is optimistic in the slice — the card disappears immediately.
   const handleRemove = useCallback((id: string) => {
-    removeBook(id);
-    setBooks((prev) => prev.filter((b) => b._id !== id));
-  }, [removeBook]);
+    dispatch(removeBook(id));
+  }, [dispatch]);
 
   const filteredBooks = books.filter((book) =>
     activeCategory === 'All' || book.category === activeCategory

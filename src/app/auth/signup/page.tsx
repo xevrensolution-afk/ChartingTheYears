@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Icon } from '@/components/ui/kit/Icon';
-import apiClient from '@/lib/apiClient';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { clearAuthError, signup } from '@/features/auth/authSlice';
+import { selectAuthError } from '@/features/auth/selectors';
 import { useRouter } from 'next/navigation';
 
 const signupSchema = z.object({
@@ -23,11 +24,17 @@ const signupSchema = z.object({
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
-  const [globalError, setGlobalError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const { login } = useAuth();
+  const dispatch = useAppDispatch();
+  // Auth submission errors live in the auth slice; RHF owns the form itself.
+  const globalError = useAppSelector(selectAuthError);
   const router = useRouter();
+
+  // Don't show a stale error from a previous auth attempt
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
 
   const {
     register,
@@ -38,15 +45,11 @@ export default function SignupPage() {
   });
 
   const onSubmit = async (data: SignupFormValues) => {
-    setGlobalError('');
     try {
-      const res = await apiClient.post('/api/auth/signup', data);
-      if (res.data.success) {
-        login(res.data.data.token, res.data.data.user);
-        router.push('/user');
-      }
-    } catch (err: any) {
-      setGlobalError(err.response?.data?.message || 'Failed to create account. Please try again.');
+      await dispatch(signup(data)).unwrap();
+      router.push('/user');
+    } catch {
+      // Error message is already in the auth slice (selectAuthError)
     }
   };
 

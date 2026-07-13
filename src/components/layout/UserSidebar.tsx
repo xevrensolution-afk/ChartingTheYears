@@ -5,36 +5,29 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/kit/Icon';
 import { DualSlider } from '@/components/ui/kit/DualSlider';
 import { TagSelect } from '@/components/ui/kit/TagSelect';
-import { useFilter } from '@/contexts/FilterContext';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  setRating,
+  setTags,
+  setYearRange,
+  toggleLanguage,
+  toggleType,
+} from '@/features/filters/filtersSlice';
+import { selectFilters } from '@/features/filters/selectors';
+import type { YearRange } from '@/features/filters/types';
+import { setMobileFiltersOpen } from '@/features/ui/uiSlice';
+import { selectCatalogLoading, selectMobileFiltersOpen } from '@/features/ui/selectors';
+import { selectSiteName } from '@/features/settings/selectors';
 import './UserSidebar.css';
 import '@/app/user/user.css';
 
 function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onClose?: () => void }) {
-  const { settings } = useSettings();
-  const {
-    filters,
-    filtersLoading,
-    setLang,
-    setType,
-    setYearRange,
-    setRating,
-    setTags,
-  } = useFilter();
+  const dispatch = useAppDispatch();
+  const siteName = useAppSelector(selectSiteName);
+  const filters = useAppSelector(selectFilters);
+  const filtersLoading = useAppSelector(selectCatalogLoading);
 
-  const handleLangToggle = (l: string) => {
-    const next = filters.lang.includes(l) 
-      ? filters.lang.filter((x) => x !== l) 
-      : [...filters.lang, l];
-    setLang(next);
-  };
-
-  const handleTypeToggle = (t: string) => {
-    const next = filters.type.includes(t)
-      ? filters.type.filter((x) => x !== t)
-      : [...filters.type, t];
-    setType(next);
-  };
+  const handleYearRange = (range: YearRange) => dispatch(setYearRange(range));
 
   const formatYear = (y: number) => (y < 0 ? `${Math.abs(y)} BC` : String(y));
 
@@ -51,7 +44,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
             <span className="sidebar-logo-icon">
               <img src="/icon-svgs/logo-icon.svg" alt="" width="26" height="26" />
             </span>
-            <span className="sidebar-logo-name">{settings.siteName}</span>
+            <span className="sidebar-logo-name">{siteName}</span>
           </Link>
           {isMobileOpen && (
             <button className="sidebar-close-btn" onClick={onClose}>
@@ -81,7 +74,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                         type="checkbox" 
                         className="kit-checkbox-input" 
                         checked={filters.lang.includes(l)}
-                        onChange={() => handleLangToggle(l)} 
+                        onChange={() => dispatch(toggleLanguage(l))}
                       />
                       <svg className="kit-checkbox-checkmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -106,7 +99,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                         type="checkbox" 
                         className="kit-checkbox-input" 
                         checked={filters.type.includes(t)}
-                        onChange={() => handleTypeToggle(t)} 
+                        onChange={() => dispatch(toggleType(t))}
                       />
                       <svg className="kit-checkbox-checkmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
@@ -132,7 +125,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                 min={-1250}
                 max={2026}
                 value={filters.yearRange}
-                onChange={setYearRange}
+                onChange={handleYearRange}
               />
             </div>
 
@@ -151,7 +144,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                 max={5}
                 step={1}
                 value={filters.rating}
-                onChange={(e) => setRating(Number(e.target.value))}
+                onChange={(e) => dispatch(setRating(Number(e.target.value)))}
               />
               <div className="rating-stars-display" aria-label="Select rating">
                 {[1, 2, 3, 4, 5].map((i) => (
@@ -159,7 +152,7 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                     key={i}
                     type="button"
                     className="rating-star-btn"
-                    onClick={() => setRating(i)}
+                    onClick={() => dispatch(setRating(i))}
                     aria-label={`${i} stars`}
                   >
                     <Icon 
@@ -189,11 +182,11 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
                   placeholder="Type to search tags"
                   className="tag-search-input"
                   value={filters.tags}
-                  onChange={(e) => setTags(e.target.value)}
+                  onChange={(e) => dispatch(setTags(e.target.value))}
                 />
               </div>
               <div className="tag-select-wrap">
-                <TagSelect value={filters.tags} onChange={setTags} />
+                <TagSelect value={filters.tags} onChange={(tags) => dispatch(setTags(tags))} />
               </div>
             </div>
           </div>
@@ -204,15 +197,16 @@ function SidebarContent({ isMobileOpen, onClose }: { isMobileOpen?: boolean; onC
 }
 
 export function UserSidebar() {
-  const { filters, setMobileFiltersOpen } = useFilter();
+  const dispatch = useAppDispatch();
+  const isMobileOpen = useAppSelector(selectMobileFiltersOpen);
 
   const handleClose = () => {
-    setMobileFiltersOpen(false);
+    dispatch(setMobileFiltersOpen(false));
   };
 
   return (
     <Suspense fallback={<aside className="sidebar" />}>
-      <SidebarContent isMobileOpen={filters.mobileFiltersOpen} onClose={handleClose} />
+      <SidebarContent isMobileOpen={isMobileOpen} onClose={handleClose} />
     </Suspense>
   );
 }

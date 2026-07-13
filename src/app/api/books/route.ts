@@ -31,12 +31,12 @@ export async function GET(request: NextRequest) {
     const rating = searchParams.get('rating');
     const tags = searchParams.get('tags');
 
-    // Batch-by-IDs short-circuit (used by sidebar)
+    // Batch-by-IDs short-circuit (used by the reading list page + sidebar)
     const idsParam = searchParams.get('ids');
     if (idsParam) {
       const ids = idsParam.split(',').filter(Boolean);
       const books = await Book.find({ _id: { $in: ids } })
-        .select('_id category')
+        .select('_id title author category language rating imageUrl publicationYear reviewText')
         .lean();
       return NextResponse.json({ success: true, data: books });
     }

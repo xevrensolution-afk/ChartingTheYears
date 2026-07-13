@@ -5,8 +5,12 @@ import dynamic from 'next/dynamic';
 import { BookCard } from '@/components/features/BookCard';
 import { BookPopupModal } from '@/components/features/BookPopupModal';
 import { useReadingList } from '@/hooks/useReadingList';
-import { useFilter } from '@/contexts/FilterContext';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setYearRange } from '@/features/filters/filtersSlice';
+import { selectFilterQuery } from '@/features/filters/selectors';
+import { FULL_YEAR_MAX, FULL_YEAR_MIN } from '@/features/filters/types';
+import { setCatalogLoading } from '@/features/ui/uiSlice';
+import { selectBooksPerPage, selectDefaultEra } from '@/features/settings/selectors';
 import apiClient from '@/lib/apiClient';
 import './user.css';
 
@@ -43,11 +47,6 @@ const CATEGORIES = [
   'Historical Novels',
 ];
 
-// Full allowed year range — only send yearMin/yearMax to API when user deviates
-// Full allowed year range — only send yearMin/yearMax to API when user deviates
-const FULL_YEAR_MIN = -1250;
-const FULL_YEAR_MAX = 2026;
-
 // Each era maps to the year range shown/used in the API filter
 const ERA_YEAR_RANGES: Record<string, [number, number]> = {
   All:         [-1250, 2026],
@@ -60,9 +59,13 @@ const ERA_YEAR_RANGES: Record<string, [number, number]> = {
 };
 
 function HomeContent() {
-  const { settings } = useSettings();
-  // Declare context hooks first — used in effects below
-  const { filters, setYearRange, setFiltersLoading } = useFilter();
+  const dispatch = useAppDispatch();
+  const defaultEra = useAppSelector(selectDefaultEra);
+  const booksPerPage = useAppSelector(selectBooksPerPage);
+  // Sidebar filters, pre-serialized as a memoized query-string fragment —
+  // effects below depend on this single string, so unrelated store changes
+  // (e.g. the mobile drawer opening) can never trigger a refetch.
+  const filterQuery = useAppSelector(selectFilterQuery);
   const { isInList, toggleBook } = useReadingList();
 
   // Default to 'All' so all countries with books are highlighted immediately.
@@ -70,12 +73,12 @@ function HomeContent() {
   const [activeEra, setActiveEra] = useState<string | null>('All');
   const [eraInitialised, setEraInitialised] = useState(false);
   useEffect(() => {
-    if (!eraInitialised && settings.defaultEra) {
-      setActiveEra(settings.defaultEra);
-      setYearRange(ERA_YEAR_RANGES[settings.defaultEra] ?? [FULL_YEAR_MIN, FULL_YEAR_MAX]);
+    if (!eraInitialised && defaultEra) {
+      setActiveEra(defaultEra);
+      dispatch(setYearRange(ERA_YEAR_RANGES[defaultEra] ?? [FULL_YEAR_MIN, FULL_YEAR_MAX]));
       setEraInitialised(true);
     }
-  }, [settings.defaultEra, eraInitialised, setYearRange]);
+  }, [defaultEra, eraInitialised, dispatch]);
 
   const [activeCategory, setActiveCategory] = useState('All');
   const [books, setBooks] = useState<Book[]>([]);
@@ -94,10 +97,11 @@ function HomeContent() {
   booksRef.current = books;
 
   const getQueryParams = useCallback((currentPage: number, extra?: Record<string, string>) => {
-    const params = new URLSearchParams();
+    // Sidebar filters (lang/type/year/rating/tags) come pre-serialized from
+    // the memoized selectFilterQuery selector.
+    const params = new URLSearchParams(filterQuery);
     params.set('status', 'published');
 
-    const booksPerPage = settings.booksPerPage || 20;
     params.set('limit', booksPerPage.toString());
     params.set('skip', ((currentPage - 1) * booksPerPage).toString());
 
@@ -105,27 +109,12 @@ function HomeContent() {
     if (activeCategory && activeCategory !== 'All') params.set('category', activeCategory);
     if (selectedCountry) params.set('country', selectedCountry);
 
-    if (filters.lang.length > 0) params.set('lang', filters.lang.join(','));
-    if (filters.type.length > 0) params.set('type', filters.type.join(','));
-
-    // Only send year range if user actually narrowed it from the full range
-    if (
-      filters.yearRange &&
-      (filters.yearRange[0] > FULL_YEAR_MIN || filters.yearRange[1] < FULL_YEAR_MAX)
-    ) {
-      params.set('yearMin', filters.yearRange[0].toString());
-      params.set('yearMax', filters.yearRange[1].toString());
-    }
-
-    if (filters.rating > 0) params.set('rating', filters.rating.toString());
-    if (filters.tags) params.set('tags', filters.tags);
-
     if (extra) {
       Object.entries(extra).forEach(([k, v]) => params.set(k, v));
     }
 
     return params.toString();
-  }, [activeEra, activeCategory, selectedCountry, filters, settings.booksPerPage]);
+  }, [activeEra, activeCategory, selectedCountry, filterQuery, booksPerPage]);
 
   // Initial load — AbortController cancels in-flight request when deps change
   useEffect(() => {
@@ -143,7 +132,7 @@ function HomeContent() {
     const fetchInitialBooks = async () => {
       try {
         setLoading(true);
-        setFiltersLoading(true);
+        dispatch(setCatalogLoading(true));
         const queryStr = getQueryParams(1);
         const response = await apiClient.get<{
           data: Book[];
@@ -164,19 +153,19 @@ function HomeContent() {
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
-          setFiltersLoading(false);
+          dispatch(setCatalogLoading(false));
         }
       }
     };
 
     fetchInitialBooks();
     return () => controller.abort();
-  }, [activeEra, activeCategory, selectedCountry, filters, settings.booksPerPage, getQueryParams]);
+  }, [activeEra, getQueryParams, dispatch]);
 
   const fetchNextPage = useCallback(async (nextPage: number) => {
     try {
       setLoadingNext(true);
-      setFiltersLoading(true);
+      dispatch(setCatalogLoading(true));
       // skip_map skips the country aggregate; skip_count skips countDocuments
       const queryStr = getQueryParams(nextPage, { skip_map: '1', skip_count: '1' });
       const response = await apiClient.get<{ data: Book[] }>(`/api/books?${queryStr}`);
@@ -186,19 +175,19 @@ function HomeContent() {
       console.error('Failed to load next page', err);
     } finally {
       setLoadingNext(false);
-      setFiltersLoading(false);
+      dispatch(setCatalogLoading(false));
     }
-  }, [getQueryParams]);
+  }, [getQueryParams, dispatch]);
 
   // Mutable ref so the stable IntersectionObserver callback always reads latest state
   const scrollStateRef = useRef({
     total,
     page,
-    booksPerPage: settings.booksPerPage || 20,
+    booksPerPage,
     loadingNext,
     fetchNextPage,
   });
-  scrollStateRef.current = { total, page, booksPerPage: settings.booksPerPage || 20, loadingNext, fetchNextPage };
+  scrollStateRef.current = { total, page, booksPerPage, loadingNext, fetchNextPage };
 
   // Stable callback ref — never changes reference, so observer never disconnects/reconnects
   const observerTarget = useCallback((node: HTMLDivElement | null) => {
@@ -243,8 +232,8 @@ function HomeContent() {
   const handleEraClick = useCallback((era: string) => {
     setActiveEra(era);
     setSelectedCountry(null);
-    setYearRange(ERA_YEAR_RANGES[era] ?? [FULL_YEAR_MIN, FULL_YEAR_MAX]);
-  }, [setYearRange]);
+    dispatch(setYearRange(ERA_YEAR_RANGES[era] ?? [FULL_YEAR_MIN, FULL_YEAR_MAX]));
+  }, [dispatch]);
 
   // Only recalculate when the country selection or book list changes
   const booksInSelection = useMemo(

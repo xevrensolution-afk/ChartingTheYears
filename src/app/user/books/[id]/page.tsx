@@ -5,7 +5,12 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useReadingList } from '@/hooks/useReadingList';
 import apiClient from '@/lib/apiClient';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAppSelector } from '@/store/hooks';
+import {
+  selectCurrentUser,
+  selectIsAdmin,
+  selectIsAuthenticated,
+} from '@/features/auth/selectors';
 import './book-detail.css';
 
 interface Book {
@@ -76,9 +81,9 @@ export default function BookDetailPage() {
   // Unified reading list — guest localStorage or authenticated DB
   const { isInList, toggleBook } = useReadingList();
 
-  // Auth context
-  const { user, isAuthenticated } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const user = useAppSelector(selectCurrentUser);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const isAdmin = useAppSelector(selectIsAdmin);
 
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 

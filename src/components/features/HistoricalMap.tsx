@@ -11,7 +11,8 @@ import {
 import { Icon } from '@/components/ui/kit/Icon';
 import { getCountryCode, getCountryName } from '@/lib/countries';
 import { isCountryVisibleInEra } from '@/lib/historicalExistence';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAppSelector } from '@/store/hooks';
+import { selectMapStyle } from '@/features/settings/selectors';
 import './HistoricalMap.css';
 
 const GEO_URL = '/countries-110m.json';
@@ -346,7 +347,9 @@ const HistoricalMap = memo(function HistoricalMap({
   onCountryClick,
 }: HistoricalMapProps) {
   const [position, setPosition] = useState({ coordinates: [0, 20] as [number, number], zoom: 1.2 });
-  const { settings } = useSettings();
+  // Subscribes to the mapStyle string only — settings churn elsewhere
+  // can't re-render this (heavy, memoized) component.
+  const mapStyle = useAppSelector(selectMapStyle);
 
   const prevEraRef = useRef(activeEra);
   const [isEraTransitioning, setIsEraTransitioning] = useState(false);
@@ -378,7 +381,7 @@ const HistoricalMap = memo(function HistoricalMap({
     [highlightedCountries],
   );
 
-  const palette = MAP_STYLES[settings.mapStyle] ?? DEFAULT_STYLE;
+  const palette = MAP_STYLES[mapStyle] ?? DEFAULT_STYLE;
 
   const handleZoomIn = useCallback(() => {
     setPosition((pos) => ({ ...pos, zoom: Math.min(pos.zoom * 1.5, 6) }));

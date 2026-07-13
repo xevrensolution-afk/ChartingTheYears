@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Icon } from '@/components/ui/kit/Icon';
-import apiClient from '@/lib/apiClient';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { clearAuthError, login } from '@/features/auth/authSlice';
+import { selectAuthError } from '@/features/auth/selectors';
 import { useRouter } from 'next/navigation';
 
 const signinSchema = z.object({
@@ -18,10 +19,16 @@ const signinSchema = z.object({
 type SigninFormValues = z.infer<typeof signinSchema>;
 
 export default function SigninPage() {
-  const [globalError, setGlobalError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login } = useAuth();
+  const dispatch = useAppDispatch();
+  // Auth submission errors live in the auth slice; RHF owns the form itself.
+  const globalError = useAppSelector(selectAuthError);
   const router = useRouter();
+
+  // Don't show a stale error from a previous auth attempt
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
 
   const {
     register,
@@ -32,19 +39,15 @@ export default function SigninPage() {
   });
 
   const onSubmit = async (data: SigninFormValues) => {
-    setGlobalError('');
     try {
-      const res = await apiClient.post('/api/auth/signin', data);
-      if (res.data.success) {
-        login(res.data.data.token, res.data.data.user);
-        if (res.data.data.user.role === 'ADMIN') {
-          router.push('/admin/dashboard');
-        } else {
-          router.push('/user');
-        }
+      const session = await dispatch(login(data)).unwrap();
+      if (session.user.role === 'ADMIN') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/user');
       }
-    } catch (err: any) {
-      setGlobalError(err.response?.data?.message || 'Failed to sign in. Please try again.');
+    } catch {
+      // Error message is already in the auth slice (selectAuthError)
     }
   };
 

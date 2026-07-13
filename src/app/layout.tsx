@@ -3,7 +3,7 @@ import { Plus_Jakarta_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AppToaster } from '@/components/ui/kit/Toast';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { StoreProvider } from '@/store/StoreProvider';
 
 const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"] });
 
@@ -35,9 +35,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-background">
       <body className={`${plusJakartaSans.className} font-sans antialiased bg-background text-foreground`}>
-        <AuthProvider>
+        <StoreProvider>
           {children}
-        </AuthProvider>
+        </StoreProvider>
         <AppToaster />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

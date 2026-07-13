@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useFilter } from '@/contexts/FilterContext';
-import { useSettings } from '@/contexts/SettingsContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setMobileFiltersOpen, setMobileReadingListOpen } from '@/features/ui/uiSlice';
+import { selectSiteName } from '@/features/settings/selectors';
 import { AuthDropdown } from './AuthDropdown';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import './UserTopbar.css';
@@ -17,8 +18,8 @@ const navItems = [
 
 export function UserTopbar() {
   const pathname = usePathname();
-  const { setMobileFiltersOpen, setMobileRLOpen } = useFilter();
-  const { settings } = useSettings();
+  const dispatch = useAppDispatch();
+  const siteName = useAppSelector(selectSiteName);
   const isAboutPage = pathname === '/user/about';
   const isReadingList = pathname === '/user/reading-list' || pathname.startsWith('/user/books/');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -31,7 +32,7 @@ export function UserTopbar() {
           <span className="user-topbar-logo-icon">
             <img src="/icon-svgs/logo-icon.svg" alt="" width="26" height="26" />
           </span>
-          <span className="user-topbar-logo-name">{settings.siteName}</span>
+          <span className="user-topbar-logo-name">{siteName}</span>
         </Link>
       )}
 
@@ -42,7 +43,7 @@ export function UserTopbar() {
           {!isAboutPage && !isReadingList && (
             <button
               className="user-topbar-filters-btn d-lg-none"
-              onClick={() => setMobileFiltersOpen(true)}
+              onClick={() => dispatch(setMobileFiltersOpen(true))}
               aria-label="Open Filters"
             >
               <img src="/icon-svgs/filters-userside.svg" alt="" width="20" height="20" aria-hidden="true" />
@@ -54,7 +55,7 @@ export function UserTopbar() {
           {isReadingList && (
             <button
               className="user-topbar-filters-btn d-lg-none"
-              onClick={() => setMobileRLOpen(true)}
+              onClick={() => dispatch(setMobileReadingListOpen(true))}
               aria-label="Open Categories"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
