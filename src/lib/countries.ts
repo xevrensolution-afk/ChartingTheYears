@@ -2,6 +2,23 @@
 // Alternative / historical names are listed BEFORE the canonical entry so the
 // reverse-map (countryCodeToName) ends up holding the canonical spelling.
 export const countryNameToCode: Record<string, string> = {
+  // ── TopoJSON polygon-name aliases (public/countries-110m.json) ──
+  // Natural Earth 110m labels these states with abbreviated names. Without an
+  // alias, getCountryCode() returns the raw label (e.g. "China"), which never
+  // matches the ISO code stored on books ("CN"), so the country silently fails
+  // to highlight on the map. Listed first so the canonical spellings further
+  // down win the reverse map (countryCodeToName).
+  'China': 'CN',
+  'Dem. Rep. Congo': 'CD',
+  'Central African Rep.': 'CF',
+  'Dominican Rep.': 'DO',
+  'Eq. Guinea': 'GQ',
+  'eSwatini': 'SZ',
+  'Solomon Is.': 'SB',
+  'Bosnia and Herz.': 'BA',
+  'Macedonia': 'MK',
+  'S. Sudan': 'SS',
+  'W. Sahara': 'EH',
   // ── A ──
   'Afghanistan': 'AF',
   'Albania': 'AL',

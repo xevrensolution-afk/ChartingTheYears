@@ -7,6 +7,7 @@ import {
   Geography,
   ZoomableGroup,
   Annotation,
+  Marker,
 } from 'react-simple-maps';
 import { Icon } from '@/components/ui/kit/Icon';
 import { getCountryCode, getCountryName } from '@/lib/countries';
@@ -206,6 +207,125 @@ function calcIntensity(count: number): 'low' | 'medium' | 'high' {
   if (count <= 3) return 'medium';
   return 'high';
 }
+
+// ── Micro-nations without a polygon in countries-110m.json ───────────────────
+// Natural Earth 110m omits these tiny (mostly island) states entirely, so they
+// can never be rendered or clicked as a <Geography>. We plot them as small
+// markers instead — otherwise a book assigned to e.g. Mauritius or Micronesia
+// has nowhere to appear on the map. Coordinates are the capital / centroid.
+const MICRO_NATIONS: Array<{ code: string; name: string; lon: number; lat: number }> = [
+  { code: 'AD', name: 'Andorra',                lon: 1.5,    lat: 42.5 },
+  { code: 'AG', name: 'Antigua and Barbuda',    lon: -61.8,  lat: 17.1 },
+  { code: 'BH', name: 'Bahrain',                lon: 50.55,  lat: 26.05 },
+  { code: 'BB', name: 'Barbados',               lon: -59.5,  lat: 13.2 },
+  { code: 'CV', name: 'Cape Verde',             lon: -23.6,  lat: 15.1 },
+  { code: 'KM', name: 'Comoros',                lon: 43.3,   lat: -11.6 },
+  { code: 'DM', name: 'Dominica',               lon: -61.4,  lat: 15.4 },
+  { code: 'GD', name: 'Grenada',                lon: -61.7,  lat: 12.1 },
+  { code: 'KI', name: 'Kiribati',               lon: 173.0,  lat: 1.4 },
+  { code: 'LI', name: 'Liechtenstein',          lon: 9.55,   lat: 47.16 },
+  { code: 'MV', name: 'Maldives',               lon: 73.5,   lat: 3.2 },
+  { code: 'MT', name: 'Malta',                  lon: 14.4,   lat: 35.9 },
+  { code: 'MH', name: 'Marshall Islands',       lon: 171.2,  lat: 7.1 },
+  { code: 'MU', name: 'Mauritius',              lon: 57.55,  lat: -20.3 },
+  { code: 'FM', name: 'Micronesia',             lon: 158.2,  lat: 6.9 },
+  { code: 'MC', name: 'Monaco',                 lon: 7.42,   lat: 43.74 },
+  { code: 'NR', name: 'Nauru',                  lon: 166.9,  lat: -0.53 },
+  { code: 'PW', name: 'Palau',                  lon: 134.6,  lat: 7.5 },
+  { code: 'KN', name: 'Saint Kitts and Nevis',  lon: -62.7,  lat: 17.3 },
+  { code: 'LC', name: 'Saint Lucia',            lon: -60.98, lat: 13.9 },
+  { code: 'VC', name: 'Saint Vincent and the Grenadines', lon: -61.2, lat: 13.25 },
+  { code: 'WS', name: 'Samoa',                  lon: -172.1, lat: -13.8 },
+  { code: 'ST', name: 'São Tomé and Príncipe',  lon: 6.6,    lat: 0.25 },
+  { code: 'SC', name: 'Seychelles',             lon: 55.5,   lat: -4.6 },
+  { code: 'SG', name: 'Singapore',              lon: 103.8,  lat: 1.35 },
+  { code: 'TO', name: 'Tonga',                  lon: -175.2, lat: -21.2 },
+  { code: 'TV', name: 'Tuvalu',                 lon: 179.2,  lat: -8.5 },
+  { code: 'VA', name: 'Vatican City',           lon: 12.45,  lat: 41.9 },
+];
+
+// ── MicroNationMarker: a clickable dot standing in for a polygon-less state ──
+// Sizes are divided by zoom so the dot/label keep a constant on-screen size as
+// the user zooms — mirroring the label sizing used for large countries.
+interface MicroNationMarkerProps {
+  code: string;
+  name: string;
+  lon: number;
+  lat: number;
+  zoom: number;
+  isSelected: boolean;
+  isHighlighted: boolean;
+  hasHighlights: boolean;
+  isIdleState: boolean;
+  intensity: 'low' | 'medium' | 'high';
+  paletteFill: string;
+  paletteStroke: string;
+  onCountryClick: (code: string) => void;
+}
+
+const MicroNationMarker = memo(function MicroNationMarker({
+  code,
+  name,
+  lon,
+  lat,
+  zoom,
+  isSelected,
+  isHighlighted,
+  hasHighlights,
+  isIdleState,
+  intensity,
+  paletteFill,
+  paletteStroke,
+  onCountryClick,
+}: MicroNationMarkerProps) {
+  const active = isHighlighted && !isIdleState;
+  const radius = (isSelected || active ? 3 : 2) / zoom;
+
+  const fill = isSelected
+    ? 'var(--ink)'
+    : active
+      ? HIGHLIGHT_FILLS[intensity]
+      : paletteFill;
+
+  const opacity = isSelected || active ? 1 : hasHighlights ? 0.4 : 0.65;
+
+  return (
+    <Marker coordinates={[lon, lat]} onClick={() => onCountryClick(code)}>
+      <title>{name}</title>
+      <circle
+        r={radius}
+        fill={fill}
+        stroke={active ? HIGHLIGHT_FILLS.high : paletteStroke}
+        strokeWidth={0.6 / zoom}
+        opacity={opacity}
+        style={{
+          cursor: 'pointer',
+          filter: active ? GLOW_FILTERS[intensity] : 'none',
+          transition:
+            'fill 550ms cubic-bezier(0.4,0,0.2,1), opacity 700ms cubic-bezier(0.4,0,0.2,1)',
+        }}
+      />
+      {active && (
+        <text
+          textAnchor="middle"
+          y={-radius - 1.2 / zoom}
+          style={{
+            fontSize: `${4 / zoom}px`,
+            fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif",
+            fontWeight: 700,
+            fill: 'oklch(0.18 0.015 60)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            letterSpacing: '0.01em',
+            textShadow: '0 0 4px var(--surface-2)',
+          }}
+        >
+          {name}
+        </text>
+      )}
+    </Marker>
+  );
+});
 
 // ── GeoFeature: memoized, isolated per-country Geography ─────────────────────
 // All props are primitives so React.memo's shallow comparison is exact.
@@ -487,6 +607,35 @@ const HistoricalMap = memo(function HistoricalMap({
               })
             }
           </Geographies>
+
+          {/* Polygon-less micro-nations, plotted as clickable markers */}
+          {MICRO_NATIONS.map((m) => {
+            const microExists =
+              !activeEra || activeEra === 'All' || isCountryVisibleInEra(m.code, activeEra);
+            if (!microExists) return null;
+
+            const isHighlighted = highlightedSet.has(m.code);
+            const count = isHighlighted ? (bookCountByCountry?.[m.code] ?? 0) : 0;
+
+            return (
+              <MicroNationMarker
+                key={m.code}
+                code={m.code}
+                name={m.name}
+                lon={m.lon}
+                lat={m.lat}
+                zoom={zoom}
+                isSelected={selectedCountryName === m.code}
+                isHighlighted={isHighlighted}
+                hasHighlights={hasHighlights}
+                isIdleState={isIdleState}
+                intensity={isHighlighted ? calcIntensity(count) : 'low'}
+                paletteFill={palette.countryFill}
+                paletteStroke={palette.countryStroke}
+                onCountryClick={handleCountryClick}
+              />
+            );
+          })}
 
           {visibleLabels.map((lbl) => {
             const code = getCountryCode(lbl.name);
